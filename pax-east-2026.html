@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PAX East 2026 - Interactive Map & Spreadsheet</title>
+    <style>
+        :root {
+            --pax-orange: #f58220;
+            --pax-dark: #1a1a2e;
+            --pax-darker: #12121f;
+            --pax-accent: #e94560;
+            --pax-blue: #0f3460;
+            --pax-green: #2ecc71;
+            --pax-purple: #9b59b6;
+            --pax-teal: #1abc9c;
+            --text-light: #e0e0e0;
+            --text-muted: #888;
+            --border-color: #2a2a4a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--pax-darker);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+        header {
+            background: linear-gradient(135deg, var(--pax-dark), var(--pax-blue));
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid var(--pax-orange);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        header h1 span { color: var(--pax-orange); }
+        .event-info {
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .event-info div { display: flex; align-items: center; gap: 5px; }
+        .event-info .label { color: var(--pax-orange); font-weight: 600; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--pax-dark);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 20px;
+        }
+        .tab {
+            padding: 14px 24px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .tab:hover { color: var(--text-light); }
+        .tab.active {
+            color: var(--pax-orange);
+            border-bottom-color: var(--pax-orange);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* MAP TAB */
+        .map-container {
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .map-panel {
+            flex: 1;
+            min-width: 600px;
+            background: var(--pax-dark);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .map-panel-header {
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .map-panel-header h2 { font-size: 1.1rem; }
+        .map-controls {
+            display: flex;
+            gap: 8px;
+        }
+        .map-controls button {
+            background: var(--pax-blue);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .map-controls button:hover { background: var(--pax-orange); }
+        .map-svg-wrapper {
+            position: relative;
+            overflow: hidden;
+            cursor: grab;
+        }
+        .map-svg-wrapper:active { cursor: grabbing; }
+        .map-svg-wrapper svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Map tooltip */
+        .map-tooltip {
+            position: absolute;
+            background: var(--pax-dark);
+            border: 1px solid var(--pax-orange);
+            border-radius: 8px;
+            padding: 12px 16px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 100;
+            min-width: 180px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .map-tooltip.show { opacity: 1; }
+        .map-tooltip h4 { color: var(--pax-orange); margin-bottom: 4px; font-size: 0.95rem; }
+        .map-tooltip p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.4; }
+
+        /* Side panel */
+        .side-panel {
+            width: 340px;
+            background: var(--pax-dark);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+        .side-panel-header {
+            padding: 14px 20px;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .side-panel-header h3 { font-size: 1rem; }
+        .legend {
+            padding: 16px 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .legend-item:hover { opacity: 0.8; }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .legend-label { font-size: 0.85rem; }
+        .legend-count { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
+
+        .selected-info {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        .selected-info h4 { color: var(--pax-orange); margin-bottom: 8px; }
+        .selected-info p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+        .selected-info .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.85rem;
+        }
+        .selected-info .detail-label { color: var(--text-muted); }
+
+        /* Floor selector */
+        .floor-selector {
+            display: flex;
+            gap: 6px;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .floor-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .floor-btn.active, .floor-btn:hover {
+            background: var(--pax-orange);
+            color: #fff;
+            border-color: var(--pax-orange);
+        }
+
+        /* SPREADSHEET TAB */
+        .spreadsheet-container {
+            padding: 20px;
+        }
+        .spreadsheet-toolbar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 16px;
+            background: var(--pax-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+        .search-box:focus { outline: none; border-color: var(--pax-orange); }
+        .filter-select {
+            padding: 10px 16px;
+            background: var(--pax-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .filter-select:focus { outline: none; border-color: var(--pax-orange); }
+        .export-btn {
+            padding: 10px 20px;
+            background: var(--pax-orange);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .export-btn:hover { background: #e0741a; }
+
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: var(--pax-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 20px;
+            flex: 1;
+            min-width: 140px;
+        }
+        .stat-card .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--pax-orange);
+        }
+        .stat-card .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .table-wrapper {
+            background: var(--pax-dark);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        thead th:hover { color: var(--pax-orange); }
+        thead th .sort-arrow { margin-left: 4px; font-size: 0.7rem; }
+        tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.15s;
+        }
+        tbody tr:hover { background: rgba(245, 130, 32, 0.06); }
+        tbody td {
+            padding: 12px 16px;
+            font-size: 0.88rem;
+            white-space: nowrap;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-aaa { background: rgba(233,69,96,0.2); color: var(--pax-accent); }
+        .badge-indie { background: rgba(46,204,113,0.2); color: var(--pax-green); }
+        .badge-tabletop { background: rgba(155,89,182,0.2); color: var(--pax-purple); }
+        .badge-hardware { background: rgba(26,188,156,0.2); color: var(--pax-teal); }
+        .badge-merch { background: rgba(245,130,32,0.2); color: var(--pax-orange); }
+        .badge-media { background: rgba(52,152,219,0.2); color: #3498db; }
+        .badge-panel { background: rgba(241,196,15,0.2); color: #f1c40f; }
+        .badge-esports { background: rgba(231,76,60,0.2); color: #e74c3c; }
+        .badge-food { background: rgba(230,126,34,0.2); color: #e67e22; }
+
+        .hall-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: rgba(15,52,96,0.5);
+            color: #5dade2;
+        }
+
+        /* Schedule sub-tab */
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 0;
+        }
+        .time-slot {
+            padding: 12px 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-right: 2px solid var(--pax-orange);
+            text-align: right;
+            padding-right: 12px;
+        }
+        .schedule-event {
+            padding: 10px 16px;
+            margin: 4px 0;
+            background: rgba(245,130,32,0.08);
+            border-radius: 8px;
+            border-left: 3px solid var(--pax-orange);
+        }
+        .schedule-event h5 { font-size: 0.88rem; margin-bottom: 2px; }
+        .schedule-event .venue { font-size: 0.78rem; color: var(--text-muted); }
+
+        .day-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+        }
+        .day-tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: all 0.2s;
+        }
+        .day-tab.active, .day-tab:hover {
+            background: var(--pax-orange);
+            color: #fff;
+            border-color: var(--pax-orange);
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .pagination button {
+            padding: 6px 14px;
+            background: var(--pax-blue);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+        }
+        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .pagination button:hover:not(:disabled) { background: var(--pax-orange); }
+
+        @media (max-width: 768px) {
+            .map-panel { min-width: 100%; }
+            .side-panel { width: 100%; }
+            header h1 { font-size: 1.3rem; }
+            .stat-card { min-width: 100px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1><span>PAX</span> East 2026</h1>
+    <div class="event-info">
+        <div><span class="label">Dates:</span> March 26-29, 2026</div>
+        <div><span class="label">Venue:</span> Menino Convention Center, Boston</div>
+        <div><span class="label">Hours:</span> 10AM-12AM (Sun: 10AM-6PM)</div>
+    </div>
+</header>
+
+<div class="tabs">
+    <div class="tab active" data-tab="map">Interactive Map</div>
+    <div class="tab" data-tab="exhibitors">Exhibitors</div>
+    <div class="tab" data-tab="schedule">Schedule</div>
+</div>
+
+<!-- MAP TAB -->
+<div id="tab-map" class="tab-content active">
+    <div class="map-container">
+        <div class="map-panel">
+            <div class="map-panel-header">
+                <h2>Convention Center Floor Plan</h2>
+                <div class="map-controls">
+                    <button onclick="zoomMap(1.2)">Zoom +</button>
+                    <button onclick="zoomMap(0.8)">Zoom -</button>
+                    <button onclick="resetMap()">Reset</button>
+                </div>
+            </div>
+            <div class="floor-selector">
+                <button class="floor-btn active" data-floor="exhibit">Exhibit Level</button>
+                <button class="floor-btn" data-floor="meeting1">Meeting Level 1</button>
+                <button class="floor-btn" data-floor="meeting2">Meeting Level 2</button>
+            </div>
+            <div class="map-svg-wrapper" id="mapWrapper">
+                <div class="map-tooltip" id="mapTooltip">
+                    <h4 id="tooltipTitle"></h4>
+                    <p id="tooltipDesc"></p>
+                </div>
+                <!-- SVG map rendered by JS -->
+            </div>
+        </div>
+        <div class="side-panel">
+            <div class="side-panel-header">
+                <h3>Map Legend</h3>
+            </div>
+            <div class="legend" id="mapLegend"></div>
+            <div class="selected-info" id="selectedInfo">
+                <h4>Click an area for details</h4>
+                <p>Hover over rooms and halls on the map to see information. Click to lock the details panel.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EXHIBITORS TAB -->
+<div id="tab-exhibitors" class="tab-content">
+    <div class="spreadsheet-container">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value" id="totalExhibitors">0</div>
+                <div class="stat-label">Total Exhibitors</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalAAA">0</div>
+                <div class="stat-label">AAA Studios</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalIndie">0</div>
+                <div class="stat-label">Indie Studios</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalTabletop">0</div>
+                <div class="stat-label">Tabletop</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalHardware">0</div>
+                <div class="stat-label">Hardware/Tech</div>
+            </div>
+        </div>
+        <div class="spreadsheet-toolbar">
+            <input type="text" class="search-box" id="searchBox" placeholder="Search exhibitors, games, booths...">
+            <select class="filter-select" id="categoryFilter">
+                <option value="">All Categories</option>
+                <option value="AAA">AAA Studios</option>
+                <option value="Indie">Indie</option>
+                <option value="Tabletop">Tabletop</option>
+                <option value="Hardware">Hardware/Tech</option>
+                <option value="Merch">Merchandise</option>
+                <option value="Media">Media/Streaming</option>
+            </select>
+            <select class="filter-select" id="hallFilter">
+                <option value="">All Halls</option>
+                <option value="Hall A">Hall A</option>
+                <option value="Hall B">Hall B</option>
+                <option value="Hall C">Hall C</option>
+            </select>
+            <select class="filter-select" id="demoFilter">
+                <option value="">All Types</option>
+                <option value="Yes">Playable Demo</option>
+                <option value="No">No Demo</option>
+            </select>
+            <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-sort="name">Exhibitor <span class="sort-arrow"></span></th>
+                        <th data-sort="category">Category <span class="sort-arrow"></span></th>
+                        <th data-sort="booth">Booth # <span class="sort-arrow"></span></th>
+                        <th data-sort="hall">Hall <span class="sort-arrow"></span></th>
+                        <th data-sort="games">Featured Titles</th>
+                        <th data-sort="demo">Demo <span class="sort-arrow"></span></th>
+                        <th data-sort="highlight">Highlights</th>
+                    </tr>
+                </thead>
+                <tbody id="exhibitorBody"></tbody>
+            </table>
+            <div class="pagination">
+                <span id="pageInfo"></span>
+                <div>
+                    <button id="prevPage" onclick="changePage(-1)">Previous</button>
+                    <button id="nextPage" onclick="changePage(1)">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCHEDULE TAB -->
+<div id="tab-schedule" class="tab-content">
+    <div class="spreadsheet-container">
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Event Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalPanels">0</div>
+                <div class="stat-label">Panels & Events</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Concert Acts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">2500+</div>
+                <div class="stat-label">Freeplay Games</div>
+            </div>
+        </div>
+        <div class="spreadsheet-toolbar">
+            <input type="text" class="search-box" id="scheduleSearch" placeholder="Search events, panels, speakers...">
+            <select class="filter-select" id="scheduleTypeFilter">
+                <option value="">All Types</option>
+                <option value="Panel">Panels</option>
+                <option value="Concert">Concerts</option>
+                <option value="Tournament">Tournaments</option>
+                <option value="Meetup">Meetups</option>
+                <option value="Workshop">Workshops</option>
+                <option value="Keynote">Keynotes</option>
+            </select>
+            <button class="export-btn" onclick="exportScheduleCSV()">Export CSV</button>
+        </div>
+        <div class="day-tabs" id="dayTabs">
+            <button class="day-tab active" data-day="all">All Days</button>
+            <button class="day-tab" data-day="thu">Thu Mar 26</button>
+            <button class="day-tab" data-day="fri">Fri Mar 27</button>
+            <button class="day-tab" data-day="sat">Sat Mar 28</button>
+            <button class="day-tab" data-day="sun">Sun Mar 29</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th data-sort="day">Day <span class="sort-arrow"></span></th>
+                        <th data-sort="time">Time <span class="sort-arrow"></span></th>
+                        <th data-sort="event">Event <span class="sort-arrow"></span></th>
+                        <th data-sort="type">Type <span class="sort-arrow"></span></th>
+                        <th data-sort="location">Location</th>
+                        <th data-sort="speakers">Speakers/Details</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// ====== DATA ======
+const exhibitors = [
+    { name: "Nintendo", category: "AAA", booth: "A-101", hall: "Hall A", games: "Upcoming Nintendo Titles", demo: "Yes", highlight: "Major booth presence" },
+    { name: "Blumhouse Games", category: "AAA", booth: "A-110", hall: "Hall A", games: "Horror game lineup", demo: "Yes", highlight: "New studio debut at PAX" },
+    { name: "Double Fine Productions", category: "AAA", booth: "A-115", hall: "Hall A", games: "New unannounced title", demo: "Yes", highlight: "Hands-on demos" },
+    { name: "IllFonic", category: "AAA", booth: "A-200", hall: "Hall A", games: "Halloween", demo: "Yes", highlight: "John Carpenter panel tie-in" },
+    { name: "NIS America", category: "AAA", booth: "A-205", hall: "Hall A", games: "Disgaea Mayhem, BRIGANDINE ABYSS, Etrange Overlord", demo: "Yes", highlight: "First NA hands-on demos" },
+    { name: "Ubisoft", category: "AAA", booth: "A-120", hall: "Hall A", games: "Upcoming titles TBA", demo: "Yes", highlight: "Major publisher booth" },
+    { name: "Bandai Namco Entertainment", category: "AAA", booth: "A-130", hall: "Hall A", games: "TBA", demo: "Yes", highlight: "Large floor presence" },
+    { name: "Atari Interactive", category: "AAA", booth: "A-300", hall: "Hall A", games: "Retro & new titles", demo: "Yes", highlight: "Classic gaming showcase" },
+    { name: "GIANTS Software", category: "AAA", booth: "A-310", hall: "Hall A", games: "Farming Simulator series", demo: "Yes", highlight: "Community meetup" },
+    { name: "Gravity Co. Ltd.", category: "AAA", booth: "A-315", hall: "Hall A", games: "Ragnarok Online Universe", demo: "Yes", highlight: "New content reveal" },
+    { name: "Dread XP", category: "Indie", booth: "B-101", hall: "Hall B", games: "Indie horror collection", demo: "Yes", highlight: "Horror game publisher" },
+    { name: "Devolver Digital", category: "Indie", booth: "B-105", hall: "Hall B", games: "Indie showcase", demo: "Yes", highlight: "Unique booth experience" },
+    { name: "Team17", category: "Indie", booth: "B-110", hall: "Hall B", games: "Indie titles", demo: "Yes", highlight: "Indie publisher showcase" },
+    { name: "Raw Fury", category: "Indie", booth: "B-115", hall: "Hall B", games: "Upcoming indie games", demo: "Yes", highlight: "Cozy games corner" },
+    { name: "Annapurna Interactive", category: "Indie", booth: "B-120", hall: "Hall B", games: "Artistic indie titles", demo: "Yes", highlight: "Award-winning titles" },
+    { name: "Coffee Stain Studios", category: "Indie", booth: "B-125", hall: "Hall B", games: "Satisfactory & more", demo: "Yes", highlight: "Community event" },
+    { name: "Finji", category: "Indie", booth: "B-130", hall: "Hall B", games: "Indie catalog", demo: "Yes", highlight: "Dev meet & greet" },
+    { name: "Yacht Club Games", category: "Indie", booth: "B-135", hall: "Hall B", games: "New title reveal", demo: "Yes", highlight: "Fan favorite studio" },
+    { name: "PAX Rising - Booth 1", category: "Indie", booth: "B-R01", hall: "Hall B", games: "Various indie titles", demo: "Yes", highlight: "PAX Rising Showcase" },
+    { name: "PAX Rising - Booth 2", category: "Indie", booth: "B-R02", hall: "Hall B", games: "Various indie titles", demo: "Yes", highlight: "PAX Rising Showcase" },
+    { name: "PAX Rising - Booth 3", category: "Indie", booth: "B-R03", hall: "Hall B", games: "Various indie titles", demo: "Yes", highlight: "PAX Rising Showcase" },
+    { name: "PAX Rising - Booth 4", category: "Indie", booth: "B-R04", hall: "Hall B", games: "Various indie titles", demo: "Yes", highlight: "PAX Rising Showcase" },
+    { name: "NVIDIA", category: "Hardware", booth: "A-400", hall: "Hall A", games: "GPU demos & benchmarks", demo: "Yes", highlight: "Latest GPU showcase" },
+    { name: "Logitech", category: "Hardware", booth: "A-405", hall: "Hall A", games: "Gaming peripherals", demo: "Yes", highlight: "New product launches" },
+    { name: "Lexar", category: "Hardware", booth: "A-410", hall: "Hall A", games: "Storage solutions", demo: "No", highlight: "Giveaways" },
+    { name: "Microsoft", category: "Hardware", booth: "A-150", hall: "Hall A", games: "Xbox ecosystem", demo: "Yes", highlight: "Xbox booth" },
+    { name: "Valve Corporation", category: "Hardware", booth: "A-160", hall: "Hall A", games: "Steam Deck & Steam", demo: "Yes", highlight: "Steam Deck demos" },
+    { name: "SteelSeries", category: "Hardware", booth: "A-415", hall: "Hall A", games: "Gaming headsets & mice", demo: "Yes", highlight: "Product tryouts" },
+    { name: "Corsair", category: "Hardware", booth: "A-420", hall: "Hall A", games: "PC peripherals", demo: "Yes", highlight: "Custom PC builds" },
+    { name: "IDW Publishing", category: "Tabletop", booth: "TT-101", hall: "Hall C", games: "Board games & comics", demo: "Yes", highlight: "Tabletop demos" },
+    { name: "Wizards of the Coast", category: "Tabletop", booth: "TT-105", hall: "Hall C", games: "D&D, Magic: The Gathering", demo: "Yes", highlight: "New set previews" },
+    { name: "Fantasy Flight Games", category: "Tabletop", booth: "TT-110", hall: "Hall C", games: "Star Wars, Marvel Champions", demo: "Yes", highlight: "Tournament demos" },
+    { name: "Steamforged Games", category: "Tabletop", booth: "TT-115", hall: "Hall C", games: "Video game board adaptations", demo: "Yes", highlight: "Kickstarter previews" },
+    { name: "Leder Games", category: "Tabletop", booth: "TT-120", hall: "Hall C", games: "Root, Oath, Arcs", demo: "Yes", highlight: "Learn-to-play sessions" },
+    { name: "Ravensburger", category: "Tabletop", booth: "TT-125", hall: "Hall C", games: "Disney Villainous & more", demo: "Yes", highlight: "Family gaming" },
+    { name: "CMON", category: "Tabletop", booth: "TT-130", hall: "Hall C", games: "Miniature games", demo: "Yes", highlight: "Painting workshops" },
+    { name: "Asmodee", category: "Tabletop", booth: "TT-135", hall: "Hall C", games: "Catan, Ticket to Ride, Pandemic", demo: "Yes", highlight: "Mega booth" },
+    { name: "PAX Merch Store", category: "Merch", booth: "M-001", hall: "Hall A", games: "Official PAX merchandise", demo: "No", highlight: "Exclusive event merch" },
+    { name: "Fangamer", category: "Merch", booth: "M-010", hall: "Hall B", games: "Gaming apparel & collectibles", demo: "No", highlight: "Exclusive PAX items" },
+    { name: "The Yetee", category: "Merch", booth: "M-015", hall: "Hall B", games: "Indie game apparel", demo: "No", highlight: "Limited edition shirts" },
+    { name: "iam8bit", category: "Merch", booth: "M-020", hall: "Hall B", games: "Vinyl soundtracks & art", demo: "No", highlight: "Collector's items" },
+    { name: "Twitch", category: "Media", booth: "A-500", hall: "Hall A", games: "Streaming demos & meetups", demo: "No", highlight: "New: Theatre on show floor" },
+    { name: "IGN", category: "Media", booth: "A-505", hall: "Hall A", games: "Live interviews & coverage", demo: "No", highlight: "Live shows" },
+];
+
+const scheduleEvents = [
+    { day: "thu", dayLabel: "Thu Mar 26", time: "10:00 AM", event: "Expo Hall Opens", type: "Keynote", location: "Halls A, B, C", speakers: "All attendees welcome" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "11:00 AM", event: "PAX East Welcome & Keynote", type: "Keynote", location: "Main Theatre", speakers: "PAX Staff" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "12:00 PM", event: "Indie Spotlight: PAX Rising Showcase", type: "Panel", location: "Bumblebee Theater", speakers: "Featured indie developers" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "1:00 PM", event: "IllFonic Presents: Halloween", type: "Panel", location: "Main Theatre", speakers: "Malek Akkad, John Carpenter (virtual)" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "2:30 PM", event: "The Future of PC Gaming", type: "Panel", location: "Dragonfly Theater", speakers: "NVIDIA, Valve, industry guests" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "3:00 PM", event: "Omegathon Round 1", type: "Tournament", location: "PAX Arena", speakers: "Omeganauts" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "4:00 PM", event: "Tabletop Gaming 101", type: "Workshop", location: "Hall C - Demo Area", speakers: "Tabletop community leaders" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "6:00 PM", event: "PAX Arena: Fighting Game Tournament", type: "Tournament", location: "PAX Arena Stage", speakers: "Community competitors" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "8:30 PM", event: "Concert: Sixth Station Trio (Opener)", type: "Concert", location: "Main Theatre", speakers: "Sixth Station Trio" },
+    { day: "thu", dayLabel: "Thu Mar 26", time: "9:30 PM", event: "Concert: mxmtoon", type: "Concert", location: "Main Theatre", speakers: "mxmtoon" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "10:00 AM", event: "Expo Hall Opens", type: "Keynote", location: "Halls A, B, C", speakers: "All attendees welcome" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "11:00 AM", event: "NIS America: Tactical Games Deep Dive", type: "Panel", location: "Dragonfly Theater", speakers: "NIS America team" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "12:00 PM", event: "Storytime with Xalavier Nelson Jr.", type: "Keynote", location: "Main Theatre", speakers: "Xalavier Nelson Jr. (Strange Scaffold)" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "1:30 PM", event: "Blumhouse Games: Horror in Interactive Media", type: "Panel", location: "Bumblebee Theater", speakers: "Blumhouse Games team" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "2:00 PM", event: "Twitch Presents: Live on the Show Floor", type: "Panel", location: "Twitch Stage (Hall A)", speakers: "Featured Twitch streamers" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "3:00 PM", event: "Warframe Community Panel", type: "Panel", location: "Dragonfly Theater", speakers: "Digital Extremes team" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "3:30 PM", event: "PAX Together: Accessibility in Gaming", type: "Panel", location: "Bumblebee Theater", speakers: "Accessibility advocates" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "4:00 PM", event: "Omegathon Round 2", type: "Tournament", location: "PAX Arena", speakers: "Omeganauts" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "5:00 PM", event: "Board Game Tournament Finals", type: "Tournament", location: "Hall C - Tournament Area", speakers: "Tabletop competitors" },
+    { day: "fri", dayLabel: "Fri Mar 27", time: "7:00 PM", event: "PAX Arena: FPS Showdown", type: "Tournament", location: "PAX Arena Stage", speakers: "Pro & community teams" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "10:00 AM", event: "Expo Hall Opens", type: "Keynote", location: "Halls A, B, C", speakers: "All attendees welcome" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "10:30 AM", event: "Cosplay Meetup: Resident Evil 30th Anniversary", type: "Meetup", location: "Lobby Atrium", speakers: "RE cosplay community" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "11:00 AM", event: "Double Fine: What's Next", type: "Panel", location: "Main Theatre", speakers: "Double Fine team" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "12:30 PM", event: "BRIGANDINE ABYSS: Shaping a Strategy Epic", type: "Panel", location: "Bumblebee Theater", speakers: "Masaru Saito, Producer" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "1:00 PM", event: "Miniature Painting Workshop", type: "Workshop", location: "Hall C - Workshop Area", speakers: "CMON painting experts" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "2:00 PM", event: "Nintendo Treehouse Live", type: "Panel", location: "Main Theatre", speakers: "Nintendo Treehouse" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "3:00 PM", event: "The Art of Indie Game Dev", type: "Panel", location: "Dragonfly Theater", speakers: "Indie developer roundtable" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "4:00 PM", event: "Omegathon Semi-Finals", type: "Tournament", location: "PAX Arena", speakers: "Omeganauts" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "5:00 PM", event: "Warframe Cosplay Meetup", type: "Meetup", location: "Lobby Atrium", speakers: "Warframe community" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "6:00 PM", event: "PAX Arena: Battle Royale Championship", type: "Tournament", location: "PAX Arena Stage", speakers: "Top competitors" },
+    { day: "sat", dayLabel: "Sat Mar 28", time: "9:00 PM", event: "Saturday Night Concert", type: "Concert", location: "Main Theatre", speakers: "Special musical guests" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "10:00 AM", event: "Expo Hall Opens (Final Day)", type: "Keynote", location: "Halls A, B, C", speakers: "Last chance to visit booths!" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "11:00 AM", event: "Farewell Panel: Best of PAX East 2026", type: "Panel", location: "Main Theatre", speakers: "PAX Staff & community" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "12:00 PM", event: "Tabletop Freeplay Marathon", type: "Workshop", location: "Hall C", speakers: "Open to all attendees" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "1:00 PM", event: "Cosplay Contest & Awards", type: "Meetup", location: "Main Theatre", speakers: "Cosplay judges & contestants" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "2:30 PM", event: "Omegathon Finals", type: "Tournament", location: "Main Theatre", speakers: "Final Omeganauts" },
+    { day: "sun", dayLabel: "Sun Mar 29", time: "4:00 PM", event: "PAX East 2026 Closing Ceremony", type: "Keynote", location: "Main Theatre", speakers: "PAX Staff" },
+];
+
+// ====== MAP DATA ======
+const mapAreas = {
+    exhibit: [
+        { id: "hallA", label: "Hall A", subtitle: "Main Expo Hall", x: 50, y: 60, w: 300, h: 220, color: "#e94560", desc: "AAA publishers, major booths, hardware. Nintendo, Ubisoft, Bandai Namco, Microsoft, NVIDIA, and more." },
+        { id: "hallB", label: "Hall B", subtitle: "Indie & Rising", x: 370, y: 60, w: 260, h: 220, color: "#2ecc71", desc: "Indie publishers, PAX Rising showcase, Devolver Digital, merchandise vendors, and emerging studios." },
+        { id: "hallC", label: "Hall C", subtitle: "Tabletop Expo", x: 650, y: 60, w: 240, h: 220, color: "#9b59b6", desc: "Tabletop gaming area. Board games, card games, RPGs. Wizards of the Coast, IDW, Fantasy Flight, and more. Open until 12AM." },
+        { id: "paxArena", label: "PAX Arena", subtitle: "Esports Stage", x: 50, y: 310, w: 200, h: 120, color: "#e74c3c", desc: "Live esports competitions, Omegathon rounds, fighting game tournaments, and FPS showdowns." },
+        { id: "mainTheatre", label: "Main Theatre", subtitle: "Panels & Concerts", x: 270, y: 310, w: 220, h: 120, color: "#f39c12", desc: "Major panels, Storytime speaker Xalavier Nelson Jr., concerts (mxmtoon, Sixth Station Trio), Omegathon finals." },
+        { id: "bumblebee", label: "Bumblebee Theater", subtitle: "Panels", x: 510, y: 310, w: 180, h: 120, color: "#f1c40f", desc: "Secondary panel space. NIS America panel, Blumhouse Games, PAX Together accessibility panel." },
+        { id: "dragonfly", label: "Dragonfly Theater", subtitle: "Panels", x: 710, y: 310, w: 180, h: 120, color: "#e67e22", desc: "Third theater. PC gaming panels, Warframe community panel, indie dev roundtables." },
+        { id: "freeplay", label: "Freeplay Zone", subtitle: "2500+ Games", x: 50, y: 460, w: 260, h: 100, color: "#1abc9c", desc: "Console and PC freeplay area with over 2,500 games. Classic and modern titles available to play." },
+        { id: "twitchStage", label: "Twitch Stage", subtitle: "Live Streaming", x: 330, y: 460, w: 180, h: 100, color: "#6441a5", desc: "New for 2026! Twitch brings theatre shenanigans to the show floor with live streamer events." },
+        { id: "merch", label: "Merch & Food", subtitle: "Shopping & Dining", x: 530, y: 460, w: 180, h: 100, color: "#e67e22", desc: "PAX Merch Store, Fangamer, The Yetee, food court, and refreshments." },
+        { id: "lobby", label: "Lobby / Registration", subtitle: "Check-in & Info", x: 730, y: 460, w: 160, h: 100, color: "#95a5a6", desc: "Badge pickup, registration, info booth, cosplay meetup area in the atrium." },
+    ],
+    meeting1: [
+        { id: "m101", label: "Rooms 101-105", subtitle: "Meeting Rooms", x: 50, y: 60, w: 250, h: 150, color: "#3498db", desc: "Meeting rooms for press, developer sessions, and private events." },
+        { id: "m106", label: "Rooms 106-109", subtitle: "Meeting Rooms", x: 320, y: 60, w: 250, h: 150, color: "#3498db", desc: "Additional meeting rooms for industry meetings and interviews." },
+        { id: "m150", label: "Rooms 150-154", subtitle: "Workshop Rooms", x: 590, y: 60, w: 250, h: 150, color: "#1abc9c", desc: "Workshop and hands-on activity rooms." },
+        { id: "m155", label: "Rooms 155-162", subtitle: "Panel Overflow", x: 50, y: 240, w: 350, h: 150, color: "#9b59b6", desc: "Overflow panel rooms and community gathering spaces." },
+        { id: "grandBallroom", label: "Grand Ballroom", subtitle: "40,020 sq ft", x: 420, y: 240, w: 420, h: 150, color: "#f39c12", desc: "40,020 sq ft ballroom overlooking Boston Seaport. Used for special events and large gatherings." },
+    ],
+    meeting2: [
+        { id: "m201", label: "Rooms 201-207", subtitle: "Upper Meeting", x: 50, y: 60, w: 400, h: 150, color: "#3498db", desc: "Upper level meeting rooms for developer sessions and press conferences." },
+        { id: "m208", label: "Rooms 208-213", subtitle: "Upper Meeting", x: 470, y: 60, w: 400, h: 150, color: "#3498db", desc: "Additional upper level meeting rooms." },
+        { id: "m251", label: "Rooms 251-255", subtitle: "Media Rooms", x: 50, y: 240, w: 400, h: 150, color: "#e74c3c", desc: "Media and press rooms for interviews, recording, and live broadcasting." },
+        { id: "m256", label: "Rooms 256-261", subtitle: "VIP & Boardroom", x: 470, y: 240, w: 400, h: 150, color: "#f39c12", desc: "VIP lounges and executive boardroom suite with A/V facilities." },
+    ]
+};
+
+const legendItems = {
+    exhibit: [
+        { color: "#e94560", label: "AAA / Main Expo", count: "Hall A" },
+        { color: "#2ecc71", label: "Indie / PAX Rising", count: "Hall B" },
+        { color: "#9b59b6", label: "Tabletop Gaming", count: "Hall C" },
+        { color: "#e74c3c", label: "Esports Arena", count: "PAX Arena" },
+        { color: "#f39c12", label: "Theaters / Panels", count: "3 venues" },
+        { color: "#1abc9c", label: "Freeplay Zone", count: "2500+ games" },
+        { color: "#6441a5", label: "Twitch Stage", count: "New!" },
+        { color: "#e67e22", label: "Merch & Food", count: "" },
+        { color: "#95a5a6", label: "Registration / Info", count: "" },
+    ],
+    meeting1: [
+        { color: "#3498db", label: "Meeting Rooms", count: "Rooms 101-109" },
+        { color: "#1abc9c", label: "Workshop Rooms", count: "Rooms 150-154" },
+        { color: "#9b59b6", label: "Panel Overflow", count: "Rooms 155-162" },
+        { color: "#f39c12", label: "Grand Ballroom", count: "40,020 sq ft" },
+    ],
+    meeting2: [
+        { color: "#3498db", label: "Upper Meeting Rooms", count: "Rooms 201-213" },
+        { color: "#e74c3c", label: "Media Rooms", count: "Rooms 251-255" },
+        { color: "#f39c12", label: "VIP & Boardroom", count: "Rooms 256-261" },
+    ]
+};
+
+// ====== STATE ======
+let currentFloor = 'exhibit';
+let mapScale = 1;
+let mapTranslateX = 0, mapTranslateY = 0;
+let isDragging = false, dragStartX, dragStartY;
+let currentPage = 0;
+const pageSize = 20;
+let sortCol = 'name', sortDir = 1;
+let scheduleSortCol = 'time', scheduleSortDir = 1;
+
+// ====== TABS ======
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+// ====== MAP ======
+function renderMap() {
+    const wrapper = document.getElementById('mapWrapper');
+    const areas = mapAreas[currentFloor];
+    const maxX = Math.max(...areas.map(a => a.x + a.w)) + 50;
+    const maxY = Math.max(...areas.map(a => a.y + a.h)) + 50;
+
+    let svg = `<svg viewBox="0 0 ${maxX} ${maxY}" xmlns="http://www.w3.org/2000/svg" id="mapSvg" style="transform: scale(${mapScale}) translate(${mapTranslateX}px, ${mapTranslateY}px); transform-origin: center;">`;
+
+    // Grid
+    for (let x = 0; x < maxX; x += 50) {
+        svg += `<line x1="${x}" y1="0" x2="${x}" y2="${maxY}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+    }
+    for (let y = 0; y < maxY; y += 50) {
+        svg += `<line x1="0" y1="${y}" x2="${maxX}" y2="${y}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+    }
+
+    // Title
+    svg += `<text x="${maxX/2}" y="35" text-anchor="middle" fill="#888" font-size="14" font-weight="600">${currentFloor === 'exhibit' ? 'EXHIBIT LEVEL' : currentFloor === 'meeting1' ? 'MEETING LEVEL 1' : 'MEETING LEVEL 2'}</text>`;
+
+    areas.forEach(area => {
+        svg += `
+            <g class="map-area" data-id="${area.id}" style="cursor:pointer">
+                <rect x="${area.x}" y="${area.y}" width="${area.w}" height="${area.h}"
+                    rx="8" ry="8"
+                    fill="${area.color}22" stroke="${area.color}" stroke-width="2"
+                    class="area-rect"/>
+                <text x="${area.x + area.w/2}" y="${area.y + area.h/2 - 8}" text-anchor="middle"
+                    fill="${area.color}" font-size="14" font-weight="700">${area.label}</text>
+                <text x="${area.x + area.w/2}" y="${area.y + area.h/2 + 12}" text-anchor="middle"
+                    fill="#888" font-size="10">${area.subtitle}</text>
+            </g>`;
+    });
+    svg += '</svg>';
+
+    // Keep tooltip
+    const tooltip = document.getElementById('mapTooltip');
+    wrapper.innerHTML = svg;
+    wrapper.appendChild(tooltip);
+
+    // Event listeners
+    document.querySelectorAll('.map-area').forEach(el => {
+        el.addEventListener('mouseenter', (e) => {
+            const area = areas.find(a => a.id === el.dataset.id);
+            if (!area) return;
+            const rect = el.querySelector('rect');
+            rect.setAttribute('fill', area.color + '44');
+            rect.setAttribute('stroke-width', '3');
+            showTooltip(e, area);
+        });
+        el.addEventListener('mouseleave', (e) => {
+            const area = areas.find(a => a.id === el.dataset.id);
+            if (!area) return;
+            const rect = el.querySelector('rect');
+            rect.setAttribute('fill', area.color + '22');
+            rect.setAttribute('stroke-width', '2');
+            hideTooltip();
+        });
+        el.addEventListener('click', () => {
+            const area = areas.find(a => a.id === el.dataset.id);
+            if (area) showSelectedInfo(area);
+        });
+    });
+
+    // Pan support
+    wrapper.addEventListener('mousedown', (e) => { isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; });
+    wrapper.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        mapTranslateX += (e.clientX - dragStartX) / mapScale;
+        mapTranslateY += (e.clientY - dragStartY) / mapScale;
+        dragStartX = e.clientX; dragStartY = e.clientY;
+        const svg = document.getElementById('mapSvg');
+        if (svg) svg.style.transform = `scale(${mapScale}) translate(${mapTranslateX}px, ${mapTranslateY}px)`;
+    });
+    wrapper.addEventListener('mouseup', () => isDragging = false);
+    wrapper.addEventListener('mouseleave', () => isDragging = false);
+
+    // Legend
+    renderLegend();
+}
+
+function showTooltip(e, area) {
+    const tooltip = document.getElementById('mapTooltip');
+    const wrapper = document.getElementById('mapWrapper');
+    const rect = wrapper.getBoundingClientRect();
+    tooltip.querySelector('#tooltipTitle').textContent = area.label;
+    tooltip.querySelector('#tooltipDesc').textContent = area.desc;
+    tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+    tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+    tooltip.classList.add('show');
+}
+
+function hideTooltip() {
+    document.getElementById('mapTooltip').classList.remove('show');
+}
+
+function showSelectedInfo(area) {
+    const info = document.getElementById('selectedInfo');
+    let html = `<h4>${area.label}</h4><p>${area.desc}</p>`;
+    // Show exhibitors in this area
+    const hallMap = { hallA: "Hall A", hallB: "Hall B", hallC: "Hall C" };
+    const hall = hallMap[area.id];
+    if (hall) {
+        const exInHall = exhibitors.filter(e => e.hall === hall);
+        if (exInHall.length) {
+            html += `<div style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">`;
+            html += `<div class="detail-row"><span class="detail-label">Exhibitors:</span><span>${exInHall.length}</span></div>`;
+            exInHall.slice(0, 8).forEach(ex => {
+                html += `<div class="detail-row"><span>${ex.name}</span><span class="detail-label">${ex.booth}</span></div>`;
+            });
+            if (exInHall.length > 8) html += `<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">+ ${exInHall.length - 8} more...</div>`;
+            html += `</div>`;
+        }
+    }
+    info.innerHTML = html;
+}
+
+function renderLegend() {
+    const legend = document.getElementById('mapLegend');
+    const items = legendItems[currentFloor];
+    legend.innerHTML = items.map(item => `
+        <div class="legend-item">
+            <div class="legend-color" style="background:${item.color}"></div>
+            <span class="legend-label">${item.label}</span>
+            <span class="legend-count">${item.count}</span>
+        </div>
+    `).join('');
+}
+
+function zoomMap(factor) {
+    mapScale = Math.max(0.5, Math.min(3, mapScale * factor));
+    const svg = document.getElementById('mapSvg');
+    if (svg) svg.style.transform = `scale(${mapScale}) translate(${mapTranslateX}px, ${mapTranslateY}px)`;
+}
+
+function resetMap() {
+    mapScale = 1; mapTranslateX = 0; mapTranslateY = 0;
+    const svg = document.getElementById('mapSvg');
+    if (svg) svg.style.transform = `scale(1) translate(0px, 0px)`;
+}
+
+// Floor buttons
+document.querySelectorAll('.floor-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.floor-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFloor = btn.dataset.floor;
+        mapScale = 1; mapTranslateX = 0; mapTranslateY = 0;
+        renderMap();
+    });
+});
+
+// ====== EXHIBITOR TABLE ======
+function getFilteredExhibitors() {
+    const search = document.getElementById('searchBox').value.toLowerCase();
+    const cat = document.getElementById('categoryFilter').value;
+    const hall = document.getElementById('hallFilter').value;
+    const demo = document.getElementById('demoFilter').value;
+
+    return exhibitors.filter(e => {
+        if (search && !`${e.name} ${e.games} ${e.booth} ${e.highlight}`.toLowerCase().includes(search)) return false;
+        if (cat && e.category !== cat) return false;
+        if (hall && e.hall !== hall) return false;
+        if (demo && e.demo !== demo) return false;
+        return true;
+    }).sort((a, b) => {
+        const av = a[sortCol] || '', bv = b[sortCol] || '';
+        return av < bv ? -sortDir : av > bv ? sortDir : 0;
+    });
+}
+
+function renderExhibitors() {
+    const filtered = getFilteredExhibitors();
+    const start = currentPage * pageSize;
+    const page = filtered.slice(start, start + pageSize);
+
+    const badgeClass = { AAA: 'badge-aaa', Indie: 'badge-indie', Tabletop: 'badge-tabletop', Hardware: 'badge-hardware', Merch: 'badge-merch', Media: 'badge-media' };
+
+    document.getElementById('exhibitorBody').innerHTML = page.map(e => `
+        <tr>
+            <td><strong>${e.name}</strong></td>
+            <td><span class="badge ${badgeClass[e.category] || ''}">${e.category}</span></td>
+            <td><code>${e.booth}</code></td>
+            <td><span class="hall-badge">${e.hall}</span></td>
+            <td>${e.games}</td>
+            <td>${e.demo === 'Yes' ? '<span style="color:var(--pax-green)">Yes</span>' : '<span style="color:var(--text-muted)">No</span>'}</td>
+            <td style="color:var(--text-muted)">${e.highlight}</td>
+        </tr>
+    `).join('');
+
+    document.getElementById('pageInfo').textContent = `Showing ${start + 1}-${Math.min(start + pageSize, filtered.length)} of ${filtered.length}`;
+    document.getElementById('prevPage').disabled = currentPage === 0;
+    document.getElementById('nextPage').disabled = start + pageSize >= filtered.length;
+
+    // Stats
+    document.getElementById('totalExhibitors').textContent = exhibitors.length;
+    document.getElementById('totalAAA').textContent = exhibitors.filter(e => e.category === 'AAA').length;
+    document.getElementById('totalIndie').textContent = exhibitors.filter(e => e.category === 'Indie').length;
+    document.getElementById('totalTabletop').textContent = exhibitors.filter(e => e.category === 'Tabletop').length;
+    document.getElementById('totalHardware').textContent = exhibitors.filter(e => e.category === 'Hardware').length;
+}
+
+function changePage(dir) { currentPage += dir; renderExhibitors(); }
+
+// Sort
+document.querySelectorAll('#tab-exhibitors thead th').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (!col) return;
+        if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+        currentPage = 0;
+        renderExhibitors();
+    });
+});
+
+// Filters
+['searchBox', 'categoryFilter', 'hallFilter', 'demoFilter'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => { currentPage = 0; renderExhibitors(); });
+    document.getElementById(id).addEventListener('change', () => { currentPage = 0; renderExhibitors(); });
+});
+
+function exportCSV() {
+    const filtered = getFilteredExhibitors();
+    const header = 'Exhibitor,Category,Booth,Hall,Featured Titles,Demo,Highlights\n';
+    const rows = filtered.map(e => `"${e.name}","${e.category}","${e.booth}","${e.hall}","${e.games}","${e.demo}","${e.highlight}"`).join('\n');
+    downloadCSV(header + rows, 'pax-east-2026-exhibitors.csv');
+}
+
+// ====== SCHEDULE TABLE ======
+function getFilteredSchedule() {
+    const search = document.getElementById('scheduleSearch').value.toLowerCase();
+    const type = document.getElementById('scheduleTypeFilter').value;
+    const activeDay = document.querySelector('.day-tab.active')?.dataset.day || 'all';
+
+    return scheduleEvents.filter(e => {
+        if (search && !`${e.event} ${e.speakers} ${e.location}`.toLowerCase().includes(search)) return false;
+        if (type && e.type !== type) return false;
+        if (activeDay !== 'all' && e.day !== activeDay) return false;
+        return true;
+    });
+}
+
+function renderSchedule() {
+    const filtered = getFilteredSchedule();
+    const badgeClass = { Panel: 'badge-panel', Concert: 'badge-aaa', Tournament: 'badge-esports', Meetup: 'badge-tabletop', Workshop: 'badge-indie', Keynote: 'badge-hardware' };
+
+    document.getElementById('scheduleBody').innerHTML = filtered.map(e => `
+        <tr>
+            <td>${e.dayLabel}</td>
+            <td><strong>${e.time}</strong></td>
+            <td>${e.event}</td>
+            <td><span class="badge ${badgeClass[e.type] || ''}">${e.type}</span></td>
+            <td><span class="hall-badge">${e.location}</span></td>
+            <td style="color:var(--text-muted)">${e.speakers}</td>
+        </tr>
+    `).join('');
+
+    document.getElementById('totalPanels').textContent = scheduleEvents.length;
+}
+
+// Day tabs
+document.querySelectorAll('.day-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.day-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderSchedule();
+    });
+});
+
+['scheduleSearch', 'scheduleTypeFilter'].forEach(id => {
+    document.getElementById(id).addEventListener('input', renderSchedule);
+    document.getElementById(id).addEventListener('change', renderSchedule);
+});
+
+function exportScheduleCSV() {
+    const filtered = getFilteredSchedule();
+    const header = 'Day,Time,Event,Type,Location,Speakers/Details\n';
+    const rows = filtered.map(e => `"${e.dayLabel}","${e.time}","${e.event}","${e.type}","${e.location}","${e.speakers}"`).join('\n');
+    downloadCSV(header + rows, 'pax-east-2026-schedule.csv');
+}
+
+function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ====== INIT ======
+renderMap();
+renderExhibitors();
+renderSchedule();
+</script>
+
+</body>
+</html>
